@@ -1,0 +1,379 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+              "name": "bot_token",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "a9b8c7d6-e5f4-3a2b-1c0d-e9f8a7b6c5d4",
+              "name": "admin_chat_id",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "f5e4d3c2-b1a0-9f8e-7d6c-5b4a3f2e1d0c",
+              "name": "unauthorized_reply_text",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        128
+      ],
+      "id": "7bd612ab-e9e1-4ba1-b136-c864e4539534",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "182f70ca-6953-414f-a8e2-c56c3f06c185",
+              "name": "mskHours",
+              "value": "={{ Number(new Date().toLocaleString('sv-SE', {timeZone: 'Europe/Moscow', hour12: false}).split(' ')[1]?.split(':')[0]) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1024,
+        112
+      ],
+      "id": "a66886ea-a644-41c6-bd97-a61ed0e381e5",
+      "name": "Time"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Telegram Trigger').first().json.message.text || '';\nlet sendTime = '';\nlet messageText = text;\n\nif (text.includes('|')) {\n    const parts = text.split('|');\n    const rawTime = parts[0].trim();\n    messageText = parts.slice(1).join('|').trim(); \n\n    if (rawTime.length >= 16) {\n        const datePart = rawTime.substring(0, 10);\n        const timePart = rawTime.substring(11, 16);\n        sendTime = `${datePart}T${timePart}:00`;\n    } else {\n        sendTime = rawTime;\n    }\n}\n\nreturn {\n    json: {\n        ...$input.item.json,\n        sendTime: sendTime,\n        messageText: messageText\n    }\n};\n"
+      },
+      "id": "118c302f-2259-4dc3-a235-4f8c5f1019d3",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-time-cond",
+              "leftValue": "={{ $json.sendTime }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5c2ebe21-8d1a-47eb-b488-90e1408df1f0",
+      "name": "Has Time?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5b1dbc82-2d97-4eb1-a84d-52e50629dd11",
+              "leftValue": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+              "rightValue": "={{ String($('Config').first().json.admin_chat_id) }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -736,
+        96
+      ],
+      "id": "416edfe0-19c4-4c20-b49a-581fc951881e",
+      "name": "Is Admin?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM welcomed_users;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        176,
+        96
+      ],
+      "id": "289aa763-d133-4839-9fcf-c900c843c9a7",
+      "name": "Get Chat ID",
+      "credentials": {
+        "postgres": {
+          "id": "pbLve4gWcaDaNIx7",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $('Parse Message').item.json.sendTime }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "35df3366-e4e4-48f8-9ed8-604b8a2e1cf0",
+      "name": "Wait",
+      "webhookId": "0aceca44-1df9-476b-b4c5-206097984120"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config').first().json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Telegram Trigger').item.json.message.chat.id }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Config').first().json.unauthorized_reply_text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -416,
+        352
+      ],
+      "id": "153e558a-7bdc-4363-ab66-9e7c5e7c7461",
+      "name": "Send Mass1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config').first().json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.user_id }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Parse Message').first().json.messageText }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        400,
+        96
+      ],
+      "id": "febbbd07-89b2-4757-9ac1-4f3db6e5b556",
+      "name": "Send Mass2"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "type": "n8n-nodes-telegram-polling.telegramPollingTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        128
+      ],
+      "id": "bba2c797-bbd6-4409-affa-22fc67caaffb",
+      "name": "Telegram Trigger",
+      "retryOnFail": false,
+      "maxTries": 5,
+      "credentials": {
+        "telegramApi": {
+          "id": "d1Cjng9zsJvbTKn4",
+          "name": "Telegram account 3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Time": {
+      "main": [
+        [
+          {
+            "node": "Is Admin?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [
+          {
+            "node": "Has Time?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Time?": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Chat ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Admin?": {
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Mass1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Chat ID": {
+      "main": [
+        [
+          {
+            "node": "Send Mass2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Get Chat ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "17375e1e-0d3f-4859-acdd-f527dbad26f8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4ab61c379085be20cf20d96fbbb517bfef42f9bd25757e3727ed19bc0aaf561b"
+  },
+  "nodeGroups": [],
+  "id": "92uIf3i1hfmACHzb",
+  "tags": []
+}
